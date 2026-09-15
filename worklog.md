@@ -101,3 +101,24 @@ Work Log:
 
 Stage Summary:
 - App fully functional and browser-verified. Honest limitations: (1) no physical microphone in sandbox — recording/live-capture code paths verified via identical REST pipeline + gateway smoke test with real audio, but actual in-browser mic recording not physically exercised; (2) CPU-only inference (no GPU in sandbox) — truthfully reported everywhere; (3) auth/rate-limiting documented as deployment responsibilities; (4) AASIST-L false-positive on band-limited degraded genuine audio observed and documented (quality-flagged with confidence penalty).
+
+---
+Task ID: 13
+Agent: main (Z.ai Code)
+Task: Reference Voice feature in Analyze Voice (record/register own voice → analyze & compare) + push code to GitHub (ARUN7002/X)
+
+Work Log:
+- Read worklog (Tasks 0-12) then implemented the user-requested "reference voice" flow directly inside Analyze Voice.
+- Backend (auto-reloaded by uvicorn --reload): db.get_profile() helper added (metadata without embedding); analysis.py speaker evidence now carries profile_name and a real profile_id; live.py session event now includes profileName of the active reference.
+- Frontend analyze-view.tsx restructured into a 2-step flow: Step 1 "Reference Voice" card (record via microphone with timer/level meter and 3s minimum guard, upload a reference file, or pick a saved profile; respects the voiceEnrollment permission; friendly error mapping for too-short/too-long/blocked-mic; only the ECAPA-TDNN embedding is stored, never audio) → Step 2 tabs (Upload / Microphone / Live Stream) analyze against the active reference. Active-reference state shows name, duration, model and enrollment time with "Use a different reference" action.
+- result-panel.tsx: new prominent comparison verdict banner when speaker evidence is available — SAME SPEAKER AS REFERENCE (emerald) / DIFFERENT SPEAKER THAN REFERENCE (destructive) with similarity vs policy speaker_threshold and a combined interpretation covering 4 cases incl. the voice-cloning pattern (speaker match + high synthetic evidence). Speaker Consistency card now shows verdict, profile name and threshold; ScoreDial hint names the reference.
+- types.ts: SpeakerEvidence.profile_name + LiveSessionInfo.profileName added (backward-compatible optional fields).
+- Verified via curl against the real backend: same-voice vs its own reference → similarity 0.99999 (MATCH); TTS vs human reference → -0.09 (MISMATCH); profile_name returned correctly; 2.9s enrollment correctly rejected with 400.
+- Browser E2E (agent-browser, desktop 1440x900 + mobile 390x844): registered "Arun Voice" via UI upload → active-reference card + toast; analyzed same file → SAME SPEAKER banner, similarity 100% vs threshold 25%, voice-cloning interpretation (file is TTS: AI likelihood 100%); analyzed different TTS → DIFFERENT SPEAKER banner, similarity 0%; registered "Genuine Human" reference from looped LDC93S1 and analyzed the original clip → SAME SPEAKER + "no significant synthetic-speech evidence" + LOW RISK (AI likelihood 16%). No console/page errors; ESLint clean; dev.log error-free; sticky-footer mechanism (min-h-screen flex-col + mt-auto) intact; no horizontal scroll on mobile; VLM visual review of full-page screenshot: NO DEFECTS.
+- GitHub push: audited tracked files (no .env/.db/keys/token anywhere; AASIST-L.pth tracked via gitignore exception). Committed 6 files (9057e30). Added clean remote https://github.com/ARUN7002/X.git (token used ONLY inline in the push URL — verified absent from .git/config and all tracked files). Pushed main→main successfully; verified via API that all 3 commits are on GitHub; set upstream tracking.
+
+Stage Summary:
+- Analyze Voice now implements the full requested flow: a person records/registers their own voice as reference (mic or upload), then any analysis (upload / microphone / live) is compared against it with a clear MATCH/MISMATCH verdict and interpretation.
+- All comparison logic uses the existing verified evidence pipeline (ECAPA-TDNN cosine similarity + policy speaker_threshold); no new claims or fabricated scores.
+- Repo state: https://github.com/ARUN7002/X main @ 9057e30, working tree clean, ESLint clean.
+- Note for the user: the GitHub PAT was shared in chat — recommend revoking/rotating it after use (it was not persisted anywhere in the repo or git config).
