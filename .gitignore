@@ -52,3 +52,43 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# ---------------------------------------------------------------- X-MUX backend
+# Runtime data (SQLite database + WAL files) — lives on the backend host only.
+backend/data/
+# Auto-downloaded model caches (speechbrain ECAPA / silero VAD artifacts).
+backend/models/ecapa/
+backend/models/silero/
+# Python runtime artifacts.
+backend/__pycache__/
+__pycache__/
+*.pyc
+backend/backend.log
+backend/.pytest_cache/
+# Model checkpoints are ignored by default EXCEPT the small tracked AASIST-L
+# checkpoint (426 KB, MIT-licensed, part of the repository).
+*.pth
+!backend/models/AASIST-L.pth
+*.onnx
+
+# ---------------------------------------------------------------- X-MUX training
+# Experiment outputs and exported artifacts: content gitignored, .gitkeep kept.
+training/experiments/*
+!training/experiments/.gitkeep
+training/export/*
+!training/export/.gitkeep
+# Datasets are NEVER committed.
+training/data/
+datasets/
+
+# ---------------------------------------------------------------- Misc runtime
+uploads/
+upload/
+tool-results/
+mini-services-dist/
+
+# ---------------------------------------------------------------- Databases
+# SQLite files are runtime data, never source-controlled (spec PART 32).
+*.db
+*.sqlite
+*.sqlite3

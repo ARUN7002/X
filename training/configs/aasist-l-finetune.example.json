@@ -1,0 +1,98 @@
+{
+  "$comment": "X-MUX AASIST-L fine-tuning configuration example. This is a TEMPLATE for the offline training workspace (GPU host). Training never runs on Vercel; the serving backend only loads the finished artifact. Fill in real paths after datasets are acquired and licenses verified. See training/README.md for the full workflow.",
+
+  "run": {
+    "run_id": "aasist-l-finetune-0001",
+    "notes": "Baseline-then-finetune run; augment both classes equally; unseen-generator split mandatory.",
+    "seed": 42
+  },
+
+  "base_model": {
+    "model_name": "AASIST-L",
+    "version": "pretrained-1.0.0",
+    "checkpoint": "backend/models/AASIST-L.pth",
+    "sha256": "814331d088032bb4c3fa61cc014789eadeed464209dd094ab3a2dd6ffbdce27a",
+    "input_contract": "float32 mono 16 kHz, 64,600 samples (~4.03 s)",
+    "output_contract": "(B,2) logits; evidence = softmax col 0 (spoof); protocol score = col 1 (bonafide)"
+  },
+
+  "data": {
+    "manifest_path": "training/data/manifests/manifest.jsonl",
+    "manifest_sha256": null,
+    "splits": {
+      "train": "train",
+      "validation": "val",
+      "test": "test",
+      "unseen_generators_test": "unseen_test"
+    },
+    "unseen_generators": [
+      "REPLACE_WITH_HELD_OUT_GENERATOR_FAMILY_1",
+      "REPLACE_WITH_HELD_OUT_GENERATOR_FAMILY_2"
+    ],
+    "$comment_unseen": "Mandatory: at least 2 generator families entirely excluded from train and val. Seen vs unseen results are reported separately, never combined."
+  },
+
+  "augmentation": {
+    "enabled": true,
+    "apply_to_both_classes_equally": true,
+    "methods": {
+      "additive_noise": { "enabled": true, "snr_db_range": [5, 25] },
+      "reverb_rir": { "enabled": true },
+      "resample": { "enabled": true, "target_rates_hz": [8000, 16000, 24000, 48000] },
+      "speed_perturbation": { "enabled": true, "factors": [0.9, 1.0, 1.1] },
+      "volume": { "enabled": true, "gain_db_range": [-10, 10] },
+      "codecs": { "enabled": true, "formats": ["opus", "g711", "amr_like"] },
+      "band_limiting": { "enabled": true, "lowpass_hz": [3400, 5500] },
+      "clipping": { "enabled": true }
+    },
+    "libraries": ["torchaudio", "audiomentations", "pedalboard"],
+    "$comment_augmentation": "Goal: prevent 'clean=genuine, compressed=fake' shortcuts. Motivated by the observed (informal, single-sample) false positive on a band-limited genuine 1963 broadcast recording during development."
+  },
+
+  "hyperparameters": {
+    "epochs": 20,
+    "batch_size": 16,
+    "learning_rate": 1e-5,
+    "$comment_learning_rate": "1e-5 is deliberately LOW because this is fine-tuning from a pretrained checkpoint, not training from scratch; adjust on validation data only.",
+    "weight_decay": 1e-4,
+    "gradient_accumulation_steps": 2,
+    "mixed_precision": "auto",
+    "num_workers": 4,
+    "checkpoint_frequency_epochs": 1,
+    "early_stopping_patience": 5,
+    "$comment_resources": "Memory/duration depend on model, input length, batch size, precision, optimizer and GPU. Never promise exact VRAM or wall-clock figures — measure on your host."
+  },
+
+  "evaluation": {
+    "metrics": [
+      "eer",
+      "roc_auc",
+      "f1",
+      "precision",
+      "recall",
+      "fpr",
+      "fnr",
+      "balanced_accuracy",
+      "confusion_matrix"
+    ],
+    "thresholds": {
+      "decision_threshold": 0.5,
+      "$comment_thresholds": "Every reported metric must state dataset, split (seen/unseen), threshold and model version."
+    },
+    "live_behavior": {
+      "enabled": true,
+      "measures": ["false_alarm_rate", "miss_rate", "latency_per_window", "stability_flapping_count", "abstention_rate"]
+    }
+  },
+
+  "calibration": {
+    "method": null,
+    "$comment_calibration": "null = skip for now. Set to 'platt' or 'isotonic' AFTER baseline validation. Fit on held-out validation data ONLY — never on test, never on train. Keep raw score, calibrated score and application risk separate."
+  },
+
+  "export": {
+    "format": "pytorch",
+    "onnx_parity_required": true,
+    "$comment_export": "PyTorch checkpoint is the primary artifact (loaded via XMUX_AASIST_MODEL_PATH). ONNX may be produced only after verified parity tests on a fixed probe set."
+  }
+}

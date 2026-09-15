@@ -1,0 +1,14 @@
+# X-MUX ML Backend — core runtime dependencies
+# (torch/torchaudio are installed from the CPU wheel index in dev:
+#  pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+#  On a GPU host, install torch per your CUDA environment instead.)
+fastapi>=0.110
+uvicorn>=0.29
+python-socketio>=5.11
+python-multipart>=0.0.9
+numpy>=1.26
+scipy>=1.11
+librosa>=0.10
+soundfile>=0.12
+pydantic>=2.6
+pydantic-settings>=2.2
