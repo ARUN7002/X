@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Upload,
   UserCheck,
+  UserX,
 } from "lucide-react";
 import {
   Collapsible,
@@ -23,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScoreDial } from "./score-dial";
 import { ActionBadge, VerdictBadge, pct } from "./status-badge";
 import type { AnalysisResult } from "@/lib/xmux/types";
+import { cn } from "@/lib/utils";
 
 function fmt(v: number | null | undefined, digits = 1, suffix = ""): string {
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
@@ -41,6 +43,13 @@ export function ResultPanel({ result }: { result: AnalysisResult }) {
   const prosody = result.evidence.prosody;
   const [techOpen, setTechOpen] = useState(false);
   const SourceIcon = SOURCE_ICONS[result.source] ?? Upload;
+
+  const speakerThreshold = result.policy?.speaker_threshold ?? 0.25;
+  const riskWarn = result.policy?.risk_warn ?? 0.35;
+  const similarity = spk.similarity ?? 0;
+  const isMatch = similarity >= speakerThreshold;
+  const synthEvidence = syn.evidence ?? 0;
+  const synthHigh = syn.available && synthEvidence >= riskWarn;
 
   const statusExplain: Record<string, string> = {
     INCONCLUSIVE:
@@ -87,6 +96,73 @@ export function ResultPanel({ result }: { result: AnalysisResult }) {
         </CardContent>
       </Card>
 
+      {/* Reference voice comparison verdict */}
+      {spk.available && (
+        <Card
+          className={cn(
+            "border",
+            isMatch ? "border-primary/40 bg-primary/5" : "border-destructive/40 bg-destructive/5",
+          )}
+        >
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <span
+                  className={cn(
+                    "flex size-11 shrink-0 items-center justify-center rounded-full",
+                    isMatch ? "bg-primary/15" : "bg-destructive/15",
+                  )}
+                >
+                  {isMatch ? (
+                    <UserCheck className="size-5 text-primary" aria-hidden />
+                  ) : (
+                    <UserX className="size-5 text-destructive" aria-hidden />
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-base font-semibold",
+                      isMatch ? "text-primary" : "text-destructive",
+                    )}
+                  >
+                    {isMatch ? "SAME SPEAKER AS REFERENCE" : "DIFFERENT SPEAKER THAN REFERENCE"}
+                  </p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Compared against “{spk.profile_name ?? "reference voice"}” — similarity{" "}
+                    <strong className="text-foreground tabular-nums">
+                      {pct(spk.similarity)}
+                    </strong>{" "}
+                    vs threshold {pct(speakerThreshold)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Speaker Match</p>
+                <p
+                  className={cn(
+                    "text-2xl font-semibold tabular-nums",
+                    isMatch ? "text-primary" : "text-destructive",
+                  )}
+                >
+                  {pct(spk.similarity)}
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 rounded-md bg-background/80 px-3 py-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Interpretation: </span>
+              {isMatch && synthHigh
+                ? "The analyzed voice closely matches the reference speaker, but strong synthetic-speech evidence was detected — a pattern consistent with a voice-cloning attempt of the reference person."
+                : isMatch && !synthHigh
+                  ? "The analyzed voice matches the reference speaker, and no significant synthetic-speech evidence was detected."
+                  : !isMatch && synthHigh
+                    ? "The analyzed voice does not match the reference speaker and shows synthetic-speech characteristics."
+                    : "The analyzed voice does not match the reference — most likely a different human speaker than the reference."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Score dials */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <ScoreDial
@@ -98,7 +174,11 @@ export function ResultPanel({ result }: { result: AnalysisResult }) {
           label="Speaker Similarity"
           value={spk.available ? (spk.similarity ?? null) : null}
           tone="similarity"
-          hint={spk.available ? "vs reference profile" : "No profile selected"}
+          hint={
+            spk.available
+              ? `vs “${(spk.profile_name ?? "reference").slice(0, 18)}”`
+              : "No reference selected"
+          }
         />
         <ScoreDial
           label="Audio Quality"
@@ -173,11 +253,10 @@ export function ResultPanel({ result }: { result: AnalysisResult }) {
             {spk.available ? (
               <>
                 <Row label="Similarity" value={pct(spk.similarity)} />
+                <Row label="Speaker verdict" value={isMatch ? "Match (same speaker)" : "Mismatch (different speaker)"} />
+                <Row label="Reference profile" value={spk.profile_name ?? spk.profile_id ?? "—"} />
+                <Row label="Match threshold" value={pct(speakerThreshold)} />
                 <Row label="Model" value={spk.model ?? "—"} />
-                <Row
-                  label="Reference profile"
-                  value={spk.profile_id ? "Selected" : "—"}
-                />
                 <Row label="Inference time" value={fmt(spk.latency_ms, 0, " ms")} />
                 <p className="pt-1 text-xs text-muted-foreground">
                   Cosine similarity against the enrolled reference voice. This

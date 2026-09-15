@@ -94,6 +94,7 @@ export interface SpeakerEvidence {
   latency_ms?: number;
   note?: string;
   profile_id?: string | null;
+  profile_name?: string | null;
 }
 
 export interface QualityEvidence {
@@ -247,6 +248,7 @@ export interface LiveSessionInfo {
   sessionId: string;
   startedAt: number;
   profileId?: string | null;
+  profileName?: string | null;
   models: { synthetic: boolean; speaker: boolean; vad: boolean };
   note?: string;
 }

@@ -100,8 +100,10 @@ def attach_live_handlers(sio: socketio.AsyncServer) -> None:
     async def _start(sid: str, data: dict | None) -> None:
         data = data or {}
         async with _lock:
+            profile_id = data.get("profileId")
+            ref_meta = db.get_profile(profile_id) if profile_id else None
             session = LiveSession(
-                db.new_id("live"), data.get("profileId"), db.get_policy()
+                db.new_id("live"), profile_id, db.get_policy()
             )
             _sessions[sid] = session
         await sio.emit(
@@ -110,6 +112,7 @@ def attach_live_handlers(sio: socketio.AsyncServer) -> None:
                 "sessionId": session.id,
                 "startedAt": session.started_at,
                 "profileId": session.profile_id,
+                "profileName": ref_meta["name"] if ref_meta else None,
                 "models": {
                     "synthetic": registry.aasist.available(),
                     "speaker": registry.ecapa.available(),

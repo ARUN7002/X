@@ -191,6 +191,18 @@ def list_profiles() -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+def get_profile(profile_id: str) -> dict[str, Any] | None:
+    """Reference profile metadata (without the embedding itself)."""
+    conn = get_db()
+    with _lock:
+        row = conn.execute(
+            """SELECT id, name, model, sample_count, duration_sec, created_at
+               FROM voice_profiles WHERE id = ?""",
+            (profile_id,),
+        ).fetchone()
+    return dict(row) if row is not None else None
+
+
 def get_profile_embedding(profile_id: str) -> list[float] | None:
     conn = get_db()
     with _lock:

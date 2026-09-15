@@ -54,6 +54,7 @@ def run_full_analysis(
     profile_name = None
     if profile_id:
         reference = db.get_profile_embedding(profile_id)
+        ref_meta = db.get_profile(profile_id)
         if reference is None:
             speaker = {"available": False,
                        "note": "reference profile not found"}
@@ -64,7 +65,7 @@ def run_full_analysis(
                            "note": "speaker model unavailable or audio too short"}
             else:
                 speaker = sim
-                profile_name = profile_id
+                profile_name = ref_meta["name"] if ref_meta else profile_id
     else:
         speaker = {"available": False,
                    "note": "no reference profile selected"}
@@ -94,7 +95,8 @@ def run_full_analysis(
             "synthetic": synthetic if synthetic else {"available": False},
             "speaker": {
                 **(speaker or {}),
-                "profile_id": profile_name,
+                "profile_id": profile_id if profile_name else None,
+                "profile_name": profile_name,
             },
             "quality": quality_result,
             "prosody": dsp_result.get("prosody", {"available": False}),
