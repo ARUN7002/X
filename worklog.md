@@ -122,3 +122,21 @@ Stage Summary:
 - All comparison logic uses the existing verified evidence pipeline (ECAPA-TDNN cosine similarity + policy speaker_threshold); no new claims or fabricated scores.
 - Repo state: https://github.com/ARUN7002/X main @ 9057e30, working tree clean, ESLint clean.
 - Note for the user: the GitHub PAT was shared in chat — recommend revoking/rotating it after use (it was not persisted anywhere in the repo or git config).
+
+---
+Task ID: 14
+Agent: main (Z.ai Code)
+Task: Fix "backend health endpoint is unreachable" error shown in System Health (user screenshot)
+
+Work Log:
+- Diagnosed from the screenshot: red alert "The backend health endpoint is unreachable…" + System Degraded badge. Root cause: the sandbox environment was reset — the uvicorn process (port 8765) was killed and non-tracked runtime artifacts were wiped: backend/models/ecapa/ (speechbrain cache), backend/data/xmux.db (SQLite), ~/.cache (HF/silero), plus ML pip packages in /home/z/.venv (torch, torchaudio, speechbrain, silero-vad, python-socketio). AASIST-L.pth survived (git-tracked).
+- Reinstalled the wiped packages: torch 2.14.0+cpu + torchaudio 2.11.0+cpu (CPU wheel index), speechbrain 1.1.1, silero-vad 6.2.1, python-socketio 5.17.0. Verified all present via importlib.
+- Restarted the backend with backend/run_dev.sh (nohup, auto-reload). ECAPA + Silero re-downloaded automatically on startup; SQLite DB auto-recreated by _init_schema.
+- Verified recovery: /api/health = READY with all 8 components READY (api, audio_decoder, dsp_engine, database, streaming, synthetic_detection AASIST-L, speaker_verification ECAPA-TDNN, speech_activity Silero VAD). Next.js proxy /api/xmux/health = READY 8/8.
+- Real end-to-end verification through the frontend proxy: POST /api/xmux/analyze → real AASIST-L inference (evidence 0.9999 on TTS sample, ~1s latency); POST /api/xmux/profiles enroll → OK; analyze with profileId → speaker similarity 1.0 with profile_name returned; DELETE profile → OK. Browser verified: header shows "System Ready", System Health page shows all 8 components READY, no error box (VLM-confirmed from screenshot).
+- No source code changes were needed — the failure was environmental (process + cache loss), and the app had correctly surfaced a truthful error. Recovery is: reinstall requirements + restart run_dev.sh; models auto-download.
+
+Stage Summary:
+- Backend restored to full READY state; analysis, enrollment, speaker comparison and live streaming all functional again.
+- DATA LOSS NOTE: the sandbox reset wiped backend/data/xmux.db — all enrolled voice profiles (including user-registered references) are gone. Users must re-register their reference voice via the Analyze Voice "Reference Voice" card (record/upload takes seconds). Analyses history was also cleared.
+- Repo unchanged (no code diff); only this worklog entry was committed and pushed to keep GitHub in sync.
